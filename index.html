@@ -1,246 +1,116 @@
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>টাকা আয় করুন - বিজ্ঞাপন দেখুন</title>
-    <script src='//libtl.com/sdk.js' data-zone='9472189' data-sdk='show_9472189'></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <style>
-        :root {
-            --primary-color: #4a6bff;
-            --secondary-color: #ff7d4a;
-            --success-color: #28a745;
-            --danger-color: #dc3545;
-            --warning-color: #ffc107;
-            --dark-color: #1a1a2e;
-            --light-color: #f8f9fa;
-            --card-bg: #16213e;
-            --text-color: #e6e6e6;
-            --text-muted: #adb5bd;
-        }
+# requirements:
+# pip install aiogram aiosqlite
+
+import os
+import sqlite3
+from aiogram import Bot, Dispatcher, types, executor
+
+# --- UPDATED BOT CONFIGURATION ---
+# আপনার দেওয়া বট টোকেন
+API_TOKEN = "7801765866:AAHlRzsBDXQhsI542JR9xrtHijDyVgp1uZk" 
+BOT_USERNAME = "moneyfactory2_bot" # আপনার দেওয়া বট ইউজারনেম
+ADMIN_ID = 7161600774 # আপনার দেওয়া অ্যাডমিন আইডি (বর্তমানে ব্যবহার করা হচ্ছে না)
+TELEGRAM_CHANNEL_1 = "https://t.me/official_chhanel_moneyfactory" # আপনার দেওয়া চ্যানেল লিংক
+TELEGRAM_CHANNEL_2 = "https://t.me/momeyfactory1" # আপনার দেওয়া অন্য চ্যানেল লিংক
+# Note: script src='//libtl.com/sdk.js' data-zone='10284383' data-sdk='show_10284383'></script> is for web pages, not for this Python bot script.
+
+# --- Simple SQLite setup ---
+DB = "bot.db"
+conn = sqlite3.connect(DB, check_same_thread=False)
+cur = conn.cursor()
+cur.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY,
+    username TEXT,
+    referer TEXT,
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+""")
+cur.execute("""
+CREATE TABLE IF NOT EXISTS referrals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    referer TEXT,
+    referee_id INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+""")
+conn.commit()
+
+# --- Bot init ---
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher(bot)
+
+# helper: store user if not exists
+def ensure_user(user_id, username, referer=None):
+    cur.execute("SELECT id FROM users WHERE id=?", (user_id,))
+    if cur.fetchone() is None:
+        cur.execute("INSERT INTO users (id, username, referer) VALUES (?, ?, ?)",
+                    (user_id, username, referer))
+        conn.commit()
+        return True
+    return False
+
+@dp.message_handler(commands=['start'])
+async def cmd_start(message: types.Message):
+    # message.text can be '/start' or '/start <refcode>'
+    args = message.get_args()  # gets the part after /start
+    user_id = message.from_user.id
+    username = message.from_user.username or message.from_user.full_name
+
+    referer = None
+    if args:
+        # args contains the referral code (e.g., user id or token)
+        referer = args.strip()
+
+    created = ensure_user(user_id, username, referer)
+    
+    # --- Referral/New User Logic ---
+    if created and referer and str(user_id) != referer: # নিশ্চিত করা হচ্ছে যে ইউজার নিজেকে রেফার করেনি
+        # record a referral
+        cur.execute("INSERT INTO referrals (referer, referee_id) VALUES (?, ?)",
+                    (referer, user_id))
+        conn.commit()
         
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        # --- বোনাস লজিক (এখানে বাস্তবায়ন করতে হবে) ---
+        # উদাহরণস্বরূপ:
+        # 1. রেফারকারীকে বোনাস দাও (referer)
+        # 2. নতুন ইউজারকে বোনাস দাও (user_id)
+        #
+        # print(f"REFERRAL BONUS: Referer {referer} gets 50, New User {user_id} gets 10.") 
         
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-            color: var(--text-color);
-            line-height: 1.6;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            padding: 15px;
-            padding-bottom: 70px; /* নেভিগেশন বারের জন্য স্থান */
-        }
+        await message.reply(f"অভিনন্দন! তুমি সফলভাবে যোগ দিয়েছ। তোমার রেফারেল কোড: {referer}।\n\nবোনাস পেতে আমাদের চ্যানেল: {TELEGRAM_CHANNEL_1} এ যোগ দিন।")
         
-        .container {
-            max-width: 500px;
-            width: 100%;
-            margin: 0 auto;
-            background: rgba(22, 33, 62, 0.9);
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            overflow: hidden;
-            padding-bottom: 20px;
-            backdrop-filter: blur(10px);
-        }
-        
-        .header {
-            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
-            color: white;
-            padding: 20px;
-            text-align: center;
-            position: relative;
-            border-bottom: 5px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .header h1 {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 5px;
-        }
-        
-        .badge {
-            display: inline-block;
-            background-color: rgba(255, 255, 255, 0.2);
-            padding: 5px 12px;
-            border-radius: 50px;
-            font-size: 12px;
-            font-weight: 600;
-            margin-top: 10px;
-        }
-        
-        .user-card, .stat-card, .progress-container, .referral-section, .rate-info, .withdraw-section, .ad-status {
-            background-color: var(--card-bg);
-            margin: 15px;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-        
-        .user-card {
-            display: flex;
-            align-items: center;
-        }
-        
-        .user-avatar {
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 20px;
-            color: white;
-            margin-right: 15px;
-        }
-        
-        .stats-container {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-        }
-        
-        .stat-card {
-            text-align: center;
-            transition: transform 0.3s ease;
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-5px);
-        }
-        
-        .stat-card h3 {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-bottom: 10px;
-        }
-        
-        .stat-card p {
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--primary-color);
-        }
-        
-        .progress-container {
-            background: linear-gradient(to right, #0f0c29, #302b63);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .progress-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 15px;
-        }
-        
-        .progress-bar {
-            height: 10px;
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: 5px;
-            overflow: hidden;
-            margin-bottom: 10px;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
-            border-radius: 5px;
-            width: 0%;
-            transition: width 0.5s ease;
-        }
-        
-        .progress-text {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-        
-        .action-buttons {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 10px;
-            margin: 15px;
-        }
-        
-        .btn {
-            padding: 15px;
-            border: none;
-            border-radius: 10px;
-            font-weight: 600;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .btn-primary { 
-            background: linear-gradient(to right, var(--primary-color), #6a11cb);
-            color: white; 
-        }
-        
-        .btn-success { 
-            background: linear-gradient(to right, var(--success-color), #11998e);
-            color: white; 
-        }
-        
-        .btn-danger { 
-            background: linear-gradient(to right, var(--danger-color), #ff416c);
-            color: white; 
-        }
-        
-        .btn-warning { 
-            background: linear-gradient(to right, var(--warning-color), #ff7e5f);
-            color: white; 
-        }
-        
-        .btn-secondary { 
-            background: linear-gradient(to right, #2c3e50, #4ca1af);
-            color: var(--text-color); 
-            border: 1px solid rgba(255, 255, 255, 0.1); 
-        }
-        
-        .btn:hover { 
-            transform: translateY(-3px); 
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); 
-        }
-        
-        .btn:active { 
-            transform: translateY(0); 
-        }
-        
-        .btn:disabled { 
-            opacity: 0.6; 
-            cursor: not-allowed; 
-            transform: none; 
-            box-shadow: none; 
-        }
-        
-        .btn i { 
-            margin-right: 8px; 
-            font-size: 18px; 
-        }
-        
-        .section-title {
-            font-size: 18px;
-            margin-bottom: 15px;
-            color: white;
-            display: flex;
-            align-items: center;
-        }
-        
-        .section-title i {
-            margin-right: 10px;
-            color: var(--secondary-color);
+    elif created:
+        await message.reply(f"স্বাগতম! তুমি সফলভাবে রেজিস্টার করেছো। তোমার রেফার লিংক পেতে /myref ব্যবহার করো।")
+    else:
+        await message.reply("স্বাগতম! তুমি আগেই রেজিস্টার করা আছে। তোমার রেফার লিংক পেতে /myref ব্যবহার করো।")
+
+@dp.message_handler(commands=['myref'])
+async def myref(message: types.Message):
+    # দেখাবে তোমার রেফার লিংক (এখানে আমরা id-টাই রেফারাল কোড হিসেবে ব্যবহার করছি)
+    uid = message.from_user.id
+    # Updated link with your bot's username
+    link = f"https://t.me/{BOT_USERNAME}?start={uid}" 
+    
+    # রেফারেলের সংখ্যাও দেখানো যেতে পারে (ঐচ্ছিক)
+    cur.execute("SELECT COUNT(*) FROM referrals WHERE referer=?", (str(uid),))
+    ref_count = cur.fetchone()[0]
+    
+    response_text = (
+        f"তোমার রেফার লিংক:\n`{link}`\n\n"
+        f"তুমি মোট **{ref_count}** জনকে রেফার করেছো।\n\n"
+        f"আমাদের টেলিগ্রাম চ্যানেল:\n{TELEGRAM_CHANNEL_1}"
+    )
+    
+    await message.reply(response_text, parse_mode=types.ParseMode.MARKDOWN)
+
+if __name__ == '__main__':
+    # স্টার্ট করার আগে যদি কোনো ফাইল থাকে, তা মুছে ফেলা যেতে পারে (ঐচ্ছিক)
+    # if os.path.exists(DB):
+    #     os.remove(DB)
+    print("Bot is starting...")
+    executor.start_polling(dp, skip_updates=True)
+
         }
         
         .referral-stats {
@@ -1156,3 +1026,4 @@
     </script>
 </body>
 </html>
+
